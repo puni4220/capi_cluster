@@ -1,0 +1,137 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# obtain values for octavia lb fqdn and lb vip
+OCTAVIA_LB_FQDN={{ capi_mgmt_cluster_lb_vip_fqdn }}
+OCTAVIA_LB_VIP={{ _capi_lb.load_balancer.vip_address }}
+HELM_VERSION={{ capi_mgmt_helm_version | default('3') }}
+
+# declare the directory for kubespray repo
+KUBESPRAY_REPO_DIR="/opt/kubespray"
+KUBESPRAY_VENV_DIR="/root/.venvs/kubespray-venv"
+
+# declare asset dir and capi mgmt inventory dir
+ASSET_DIR="/home/ubuntu"
+CAPI_MGMT_DIR="capi-mgmt-cluster"
+CAPI_MGMT_KEY="/var/tmp/capi_mgmt_cluster_keypair"
+
+# declare the log file
+LOG_FILE="/var/log/capi-mgmt-cluster-install.log"
+
+# send xtrace output to FD 3, which is appended to the log file
+exec 3>>"$LOG_FILE"
+export BASH_XTRACEFD=3
+
+# include timestamps, file and line number in the trace lines
+export PS4='+ $(date "+%Y-%m-%d %H:%M:%S") [$BASH_SOURCE:$LINENO] '
+
+# remove the existing logs
+echo > "$LOG_FILE"
+
+# enable command tracing
+set -x
+
+# check if it's required to copy the ssh key from the
+# asset dir to the /var/tmp path; this ensures that the
+# ssh key is not overridden when the script is re-run
+if [ ! -f "$CAPI_MGMT_KEY" ]; then
+  cp "$ASSET_DIR/capi_mgmt_cluster_keypair" "$CAPI_MGMT_KEY"
+fi
+
+chmod 0400 "$CAPI_MGMT_KEY"
+
+# install git and venv packages
+apt-get update &>> "$LOG_FILE" && apt-get install git python3-venv -y &>> "$LOG_FILE"
+
+# create the venv for kubespray
+python3 -m venv "$KUBESPRAY_VENV_DIR"
+
+# check if the kubespray repo has been cloned
+if [ ! -d "$KUBESPRAY_REPO_DIR" ]; then
+  # repo has not been cloned; clone the repo
+  git clone https://github.com/kubernetes-sigs/kubespray.git "$KUBESPRAY_REPO_DIR" &>> "$LOG_FILE"
+fi
+
+# repo is cloned to the required directory; install the pip packages
+pushd "$KUBESPRAY_REPO_DIR" &>> "$LOG_FILE"
+
+# checkout the repo to tag v2.30.0
+git checkout tags/v2.30.0 &>> "$LOG_FILE"
+
+# install the required pip packages for kubespray
+"$KUBESPRAY_VENV_DIR/bin/python" -m pip install --upgrade pip &>> "$LOG_FILE"
+"$KUBESPRAY_VENV_DIR/bin/python" -m pip install -U -r requirements.txt &>> "$LOG_FILE"
+
+# check if ansible installed and test with ping
+"$KUBESPRAY_VENV_DIR/bin/ansible" -m ping localhost &>> "$LOG_FILE"
+
+# create the /etc/host entry for capi-mgmt lb vip
+"$KUBESPRAY_VENV_DIR/bin/ansible" -i "$ASSET_DIR"/capi-mgmt-inventory.ini all\
+	                          -m lineinfile -a "path=/etc/hosts line='$OCTAVIA_LB_VIP $OCTAVIA_LB_FQDN' state=present"\
+              	                  -b --private-key "$CAPI_MGMT_KEY" --ssh-common-args='-o StrictHostKeyChecking=no' &>> "$LOG_FILE"
+
+# this block runs only if the inventory directory for capi-mgmt-cluster
+# doesn't exist; this is because we want to preserve the initially created 
+# inventory and not override it everytime the script is run; this also 
+# keeps the other required yaml variables from overrides
+if [ ! -d "$KUBESPRAY_REPO_DIR/inventory/$CAPI_MGMT_DIR" ]; then
+  # create the inventory dir for capi-mgmt cluster
+  cp -rfp inventory/sample inventory/"$CAPI_MGMT_DIR"
+fi
+
+# copy of the inventory file already exists; backup the inventory first and then
+# copy the inventory file from the asset dir to the capi-mgmt cluster inventory dir
+if [ -f "$KUBESPRAY_REPO_DIR/inventory/$CAPI_MGMT_DIR/capi-mgmt-inventory.ini" ]; then
+
+  # print a message in the logs that the inventory exists
+  echo "Inventory for the mgmt cluster already exists; creating a backup before copying" &>> "$LOG_FILE"
+
+  cp inventory/"$CAPI_MGMT_DIR"/capi-mgmt-inventory.ini inventory/"$CAPI_MGMT_DIR"/inventory_$(date +%Y%m%d%H%M%S).bak
+
+  cp "$ASSET_DIR"/capi-mgmt-inventory.ini inventory/"$CAPI_MGMT_DIR"/capi-mgmt-inventory.ini
+else
+  # if there is no existing inventory copy from the asset dir
+  cp "$ASSET_DIR"/capi-mgmt-inventory.ini inventory/"$CAPI_MGMT_DIR"/capi-mgmt-inventory.ini
+fi
+
+
+# only copy the overrides if they don't already exist
+if [ ! -f "$KUBESPRAY_REPO_DIR/inventory/$CAPI_MGMT_DIR/group_vars/all/capi-cluster-vars.yml" ]; then
+  # copy the yaml overrides from the asset dir to the capi-mgmt cluster inventory dir
+  cp "$ASSET_DIR"/capi-cluster-vars.yml inventory/"$CAPI_MGMT_DIR"/group_vars/all/capi-cluster-vars.yml
+
+else
+  # print a message cluster overrides exist
+  echo "cluster overrides exist; skipping copy from the asset directory" &>> "$LOG_FILE"
+fi
+
+# copy the overrides for dns forwarders for coredns and nodelocaldns
+cp "$ASSET_DIR"/capi-cluster-dns-vars.yml inventory/"$CAPI_MGMT_DIR"/group_vars/all/capi-cluster-dns-vars.yml
+  
+# this block only runs if the mgmt cluster is either not installed or
+# if the cluster is installed but not all the nodes are in ready state
+# so we install the cluster or try to recover by re-running the playbook
+if ! kubectl get nodes --no-headers | awk '{print $2}' | grep -q "Ready" &>> "$LOG_FILE"; then
+	
+  # run the playbook to install the cluster
+  "$KUBESPRAY_VENV_DIR/bin/ansible-playbook" -i inventory/"$CAPI_MGMT_DIR"/capi-mgmt-inventory.ini playbooks/cluster.yml\
+	                                     -b --private-key "$CAPI_MGMT_KEY" --ssh-common-args='-o StrictHostKeyChecking=no' &>> "$LOG_FILE"
+else
+  # print a message that the cluster is already installed and is healthy
+  echo "cluster is installed and is healthy; not re-running playbook!" &>> "$LOG_FILE"
+  kubectl get nodes -o wide &>> "$LOG_FILE"
+fi
+
+popd &>> "$LOG_FILE"
+
+# this block checks if helm is installed and if not install helm
+if command -v helm &>> "$LOG_FILE"; then  
+  # print a message that helm is already installed
+  echo "Helm is already installed!" &>> "$LOG_FILE"
+
+else
+  # install helm as it is not installed on the cluster
+  echo "Helm is not installed; installing helm-3 on the cluster" &>> "$LOG_FILE"
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-"$HELM_VERSION" | bash &>> "$LOG_FILE"
+fi

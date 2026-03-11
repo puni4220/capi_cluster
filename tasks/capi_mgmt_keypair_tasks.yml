@@ -1,0 +1,14 @@
+---
+- name: create the openssh keypair for the capi mgmt cluster
+  community.crypto.openssh_keypair:
+    path: "{{ capi_mgmt_cluster_keypair.path }}"
+    type: "{{ capi_mgmt_cluster_keypair.type }}"
+    size: "{{ capi_mgmt_cluster_keypair.size }}"
+  register: _capi_key
+
+- name: create the keypair in nova for the capi mgmt cluster
+  openstack.cloud.keypair:
+    interface: "{{ os_endpoint_type | default('public') }}"
+    state: present
+    name: "{{ capi_mgmt_cluster_keypair.name }}"
+    public_key: "{{ _capi_key.public_key }}"
