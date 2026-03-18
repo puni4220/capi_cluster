@@ -6,6 +6,7 @@ set -euo pipefail
 OCTAVIA_LB_FQDN={{ capi_mgmt_cluster_lb_vip_fqdn }}
 OCTAVIA_LB_VIP={{ _capi_lb.load_balancer.vip_address }}
 HELM_VERSION={{ capi_mgmt_helm_version | default('3') }}
+DNS_VARS={{ (capi_mgmt_dns_forwarders is defined) | ternary(true, false) }}
 
 # declare the directory for kubespray repo
 KUBESPRAY_REPO_DIR="/opt/kubespray"
@@ -113,7 +114,11 @@ else
 fi
 
 # copy the overrides for dns forwarders for coredns and nodelocaldns
-cp "$ASSET_DIR"/capi-cluster-dns-vars.yml inventory/"$CAPI_MGMT_DIR"/group_vars/all/capi-cluster-dns-vars.yml
+if [[ "${DNS_VARS,,}" == "true" ]] &>> "$LOG_FILE"; then
+  cp "$ASSET_DIR"/capi-cluster-dns-vars.yml inventory/"$CAPI_MGMT_DIR"/group_vars/all/capi-cluster-dns-vars.yml
+else
+  echo "no dns overrides defined for coredns and nodelocaldns" &>> "$LOG_FILE"
+fi
   
 # this block only runs if the cluster is not already installed
 if ! kubectl get nodes --no-headers &>> "$LOG_FILE"; then
@@ -125,7 +130,7 @@ if ! kubectl get nodes --no-headers &>> "$LOG_FILE"; then
 	                                     -b --private-key "$CAPI_MGMT_KEY" --ssh-common-args='-o StrictHostKeyChecking=no' &>> "$LOG_FILE"
 else
   # cluster is already installed; print the message to the user
-  echo "cluster is already installed; checking if all the nodes in the cluster are healthy"
+  echo "cluster is already installed; checking if all the nodes in the cluster are healthy" &>> "$LOG_FILE"
 fi
 
 # this block only runs if the mgmt cluster is installed but not all the
@@ -137,7 +142,7 @@ if [ "$(kubectl get nodes --no-headers | awk '{print $2}' | grep -c 'Ready')" -l
   exit 1
 
   #"$KUBESPRAY_VENV_DIR/bin/ansible-playbook" -i inventory/"$CAPI_MGMT_DIR"/capi-mgmt-inventory.ini playbooks/cluster.yml\
-	                                     -b --private-key "$CAPI_MGMT_KEY" --ssh-common-args='-o StrictHostKeyChecking=no' &>> "$LOG_FILE"
+  #	                                     -b --private-key "$CAPI_MGMT_KEY" --ssh-common-args='-o StrictHostKeyChecking=no' &>> "$LOG_FILE"
 else
   # print a message that the cluster is already installed and is healthy
   echo "cluster is installed and is healthy; not re-running playbook!" &>> "$LOG_FILE"
