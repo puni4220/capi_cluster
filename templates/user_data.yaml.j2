@@ -1,0 +1,20 @@
+#cloud-config
+write_files:
+  - path: /etc/environment
+    permissions: '0644'
+    content: |
+      http_proxy={{ http_proxy_url }}
+      https_proxy={{ https_proxy_url }}
+      HTTP_PROXY={{ http_proxy_url }}
+      HTTPS_PROXY={{ https_proxy_url }}
+      no_proxy={{ no_proxy_csv }}
+      NO_PROXY={{ no_proxy_csv }}
+
+  - path: /etc/apt/apt.conf.d/95proxy
+    permissions: '0644'
+    content: |
+      Acquire::http::Proxy  "{{ http_proxy_url }}/";
+      Acquire::https::Proxy "{{ https_proxy_url }}/";
+
+runcmd:
+  - apt-get update || true

@@ -1,0 +1,8 @@
+---
+http_proxy: "http://{{ proxy_user }}:{{ proxy_pass | urlencode }}@{{ proxy_host }}:{{ proxy_port }}"
+HTTP_PROXY: "http://{{ proxy_user }}:{{ proxy_pass | urlencode }}@{{ proxy_host }}:{{ proxy_port }}"
+https_proxy: "http://{{ proxy_user }}:{{ proxy_pass | urlencode }}@{{ proxy_host }}:{{ proxy_port }}"
+HTTPS_PROXY: "http://{{ proxy_user }}:{{ proxy_pass | urlencode }}@{{ proxy_host }}:{{ proxy_port }}"
+
+no_proxy: "{{ _no_proxy_csv }}"
+NO_PROXY: "{{ _no_proxy_csv }}"

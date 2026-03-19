@@ -119,6 +119,11 @@ if [[ "${DNS_VARS,,}" == "true" ]] &>> "$LOG_FILE"; then
 else
   echo "no dns overrides defined for coredns and nodelocaldns" &>> "$LOG_FILE"
 fi
+
+# copy the overrides for proxy vars for the cluster
+if [ -f "$ASSET_DIR/capi-cluster-proxy-vars.yml" ]; then
+  cp "$ASSET_DIR"/capi-cluster-proxy-vars.yml inventory/"$CAPI_MGMT_DIR"/group_vars/all/capi-cluster-proxy-vars.yml
+fi
   
 # this block only runs if the cluster is not already installed
 if ! kubectl get nodes --no-headers &>> "$LOG_FILE"; then

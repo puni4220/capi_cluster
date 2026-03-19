@@ -34,6 +34,11 @@
     - capi_mgmt_dns_forwarders is defined
     - capi_mgmt_dns_forwarders | length > 0
 
+- name: Generate the yaml overrides for the capi mgmt cluster (upstream http proxy)
+  ansible.builtin.template:
+    src: templates/capi-cluster-proxy-vars.yml.j2
+    dest: /var/tmp/capi-cluster-proxy-vars.yml
+
 - name: Generate the capi mgmt cluster install script
   ansible.builtin.template:
     src: capi-cluster-install.sh.j2

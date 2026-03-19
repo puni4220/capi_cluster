@@ -116,3 +116,15 @@ capi_mgmt_dns_forwarders:
 
 capi_mgmt_bootstrap_vm_user: "ubuntu"
 capi_mgmt_bootstrap_vm_path: "/home/ubuntu"
+
+# proxy variables
+proxy_scheme: "http"
+proxy_host: "10.239.0.79"
+proxy_port: 3128
+proxy_user: "testuser"
+proxy_pass: "test1234"
+no_proxy_fqdn:
+  - ".cluster.local"  
+  - ".pikachu.jabronis.dev"
+#no_proxy_pod_cidr
+#no_proxy_svc_cidr

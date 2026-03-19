@@ -1,4 +1,34 @@
 ---
+- name: Build no_proxy vars for the capi mgmt cluster instances (bfv)
+  set_fact:
+    _np_sources:
+      - "localhost"
+      - "127.0.0.1"
+      - "169.254.169.254"
+      - "169.254.25.10"
+      - "{{ capi_mgmt_subnet_cidr }}"
+      - "{{ _capi_lb.load_balancer.vip_address }}"
+      - "{{ no_proxy_pod_cidr | default('10.233.64.0/18') }}"
+      - "{{ no_proxy_svc_cidr | default('10.233.0.0/18') }}"
+      - "{{ capi_mgmt_cluster_lb_vip_fqdn }}"
+      - "{{ no_proxy_fqdn | default(['.cluster.local']) }}"
+
+- name: Build no_proxy list for the capi mgmt cluster instances (bfv)
+  set_fact:
+    _no_proxy_list: >-
+      {{
+        _np_sources
+        | flatten
+        | map('trim')
+        | reject('equalto','')
+        | list
+        | unique
+      }}
+
+- name: Build no_proxy string for the capi mgmt cluster instances (bfv)
+  set_fact:
+    _no_proxy_csv: "{{ _no_proxy_list | join(',') }}"
+
 - name: Create the instances for capi mgmt cluster (bfv)
   openstack.cloud.server:
     interface: "{{ os_endpoint_type | default('public') }}"
@@ -15,6 +45,11 @@
     metadata: "group=capi_mgmt_cluster_vms"
     scheduler_hints:
       group: "{{ _capi_server_group.server_group.id }}"
+    userdata: "{{ lookup('template', 'user_data.yaml.j2') }}"
+  vars:
+    http_proxy_url: "http://{{ proxy_user }}:{{ proxy_pass | urlencode }}@{{ proxy_host }}:{{ proxy_port }}"
+    https_proxy_url: "{{ http_proxy_url }}"
+    no_proxy_csv: "{{ _no_proxy_csv }}"
   loop: "{{ capi_mgmt_cluster_instances }}"
 
 - name: Attach a floating ip to the capi mgmt cluster bootstrap vm
