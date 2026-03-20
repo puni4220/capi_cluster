@@ -31,7 +31,7 @@
     OS_AUTH_VERSION: "{{ os_auth_version }}"
     NOVA_ENDPOINT_TYPE: "{{ nova_endpoint_type }}"
   roles:
-    - capi_cluster
+    - /root/git_repo/capi_cluster
 
 - name: Playbook to deploy kubernetes cluster on capi mgmt cluster vms
   hosts: capi_mgmt_bootstrp_vm
@@ -69,6 +69,11 @@
         dest: /home/ubuntu/capi-cluster-dns-vars.yml
       when: _capi_dns_vars_file.stat.exists
 
+    - name: copy the proxy vars to the bootstrp vm
+      ansible.builtin.copy:
+        src: /var/tmp/capi-cluster-proxy-vars.yml
+        dest: /home/ubuntu/capi-cluster-proxy-vars.yml
+
     - name: copy the shell script to the install the cluster on the bootstrp vm
       ansible.builtin.copy:
         src: /var/tmp/capi-cluster-install.sh
@@ -77,7 +82,7 @@
 
     - name: Notify the user about the script logs
       ansible.builtin.debug:
-        msg: |
+        msg: >
           "installing capi-mgmt-cluster; check /var/log/capi-mgmt-cluster-install.log on
           {{ inventory_hostname }} for further details"
 
@@ -97,7 +102,7 @@
       delay: 10
 
     - name: print message if the script failed
-      ansible.builtin.debug:
+      ansible.builtin.fail:
         msg: >
           capi cluster install script failed with rc={{ _capi_cluster_install_script_result.rc }}
           please check the log /var/log/capi-mgmt-cluster-install.log on {{ inventory_hostname }}
@@ -105,3 +110,12 @@
       when:
         - _capi_cluster_install_script_result.rc is defined
         - _capi_cluster_install_script_result.rc != 0
+
+    - name: print message if the script runs without any issue
+      ansible.builtin.debug:
+        msg: >
+         capi cluster install script went without any issues; the management 
+         cluster has been installed
+      when: 
+        - _capi_cluster_install_script_result.rc is defined
+        - _capi_cluster_install_script_result.rc == 0
