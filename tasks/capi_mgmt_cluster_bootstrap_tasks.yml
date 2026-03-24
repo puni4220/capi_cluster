@@ -5,7 +5,7 @@
     groups: 'capi_mgmt_bootstrp_vm'
     ansible_ssh_host: "{{ _capi_boostrap_fip.floating_ip.floating_ip_address }}"
     ansible_ssh_user: 'ubuntu'
-    ansible_ssh_private_key_file: "{{ capi_mgmt_cluster_keypair.path }}"
+    ansible_ssh_private_key_file: "{{ ansible_env.HOME }}/capi_mgmt_private_key"
     ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
 
 - name: Obtain the details of the capi mgmt cluster vms

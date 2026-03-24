@@ -30,6 +30,7 @@
     OS_IDENTITY_API_VERSION: "{{ os_identity_api_version }}"
     OS_AUTH_VERSION: "{{ os_auth_version }}"
     NOVA_ENDPOINT_TYPE: "{{ nova_endpoint_type }}"
+    KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
   roles:
     - /root/git_repo/capi_cluster
 
@@ -43,7 +44,7 @@
 
     - name: copy the ssh key to the bootstrp vm
       ansible.builtin.copy:
-        src: /var/tmp/capi_mgmt_cluster_keypair
+        src: "{{ ansible_env.HOME }}/capi_mgmt_private_key"
         dest: /home/ubuntu/capi_mgmt_cluster_keypair
         mode: 0400
 
@@ -114,3 +115,12 @@
       when:
         - _capi_cluster_install_script_result.rc is defined
         - _capi_cluster_install_script_result.rc == 0
+
+    - name: copy the kubeconfig from the capi mgmt cluster
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: /var/tmp/capi_mgmt_cluster.kubeconfig
+        flat: yes
+      when:
+        - _capi_cluster_install_script_result.rc is defined
+          _capi_cluster_install_script_result.rc == 0
