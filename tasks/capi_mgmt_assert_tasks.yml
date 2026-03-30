@@ -1,4 +1,11 @@
 ---
+- name: check if boot from volume is enabled
+  ansible.builtin.assert:
+    that:
+      - capi_boot_from_volume is defined
+      - capi_boot_from_volume | bool
+    fail_msg: "Currently only boot from volume is supported for capi mgmt cluster vms"
+
 - name: check if the external network id is provided
   ansible.builtin.assert:
     that:

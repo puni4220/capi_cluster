@@ -7,8 +7,8 @@
 
 - name: Download the image for the capi mgmt cluster if required
   ansible.builtin.get_url:
-    url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-    dest: /tmp/jammy-server-cloudimg-amd64.img
+    url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+    dest: /tmp/noble-server-cloudimg-amd64.img
     mode: '0644'
   when: _capi_preuploaded_image.images | length == 0
 
@@ -19,7 +19,7 @@
     name: "{{ capi_mgmt_cluster_image }}"
     disk_format: qcow2
     container_format: bare
-    filename: /tmp/jammy-server-cloudimg-amd64.img
+    filename: /tmp/noble-server-cloudimg-amd64.img
     visibility: shared
   register: _capi_ansibleupload_image
   when: _capi_preuploaded_image.images | length == 0
@@ -37,12 +37,12 @@
     is_public: "{{ capi_mgmt_cluster_flavor.is_public }}"
   register: _capi_cluster_flavor
 
-- name: Set the image id to the pre-uploaded ubuntu22 image
+- name: Set the image id to the pre-uploaded ubuntu24 image
   set_fact:
     _capi_image_id: "{{ _capi_preuploaded_image.images[0].id }}"
   when: _capi_preuploaded_image.images | length == 1
 
-- name: Set the image id to the ansible-uploaded ubuntu22 image
+- name: Set the image id to the ansible-uploaded ubuntu24 image
   set_fact:
     _capi_image_id: "{{ _capi_ansibleupload_image.image.id }}"
   when: _capi_preuploaded_image.images | length == 0

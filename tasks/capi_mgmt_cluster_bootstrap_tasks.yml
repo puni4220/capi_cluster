@@ -38,3 +38,8 @@
   ansible.builtin.template:
     src: capi-cluster-install.sh.j2
     dest: /var/tmp/capi-cluster-install.sh
+
+- name: Generate the capi mgmt cluster etcd backup script
+  ansible.builtin.template:
+    src: etcd-backup.sh.j2
+    dest: /var/tmp/etcd-backup.sh

@@ -62,13 +62,13 @@ capi_mgmt_cluster_ports:
   - name: capi-port3
     description: "capi mgmt cluster port 3"
 
-capi_mgmt_cluster_image: "ubuntu22"
+capi_mgmt_cluster_image: "ubuntu24"
 
 capi_boot_from_volume: true
 capi_mgmt_cluster_flavor:
   name: 'm1.capi-mgmt-cluster-flavor'
   vcpus: 4
-  ram: 2048
+  ram: 4096
   disk: "{{ capi_boot_from_volume | ternary(0,'80') }}"
   ephemeral: 0
   description: "capi mgmt cluster flavor"
@@ -90,6 +90,13 @@ capi_mgmt_cluster_volumes:
     size: 15
     volume_type: "{{ capi_mgmt_cluster_volume_type }}"
 
+capi_mgmt_etcd_backup_volume:
+  name: capi-mgmt-etcd-backup-volume-1
+  size: 5
+  volume_type: "{{ capi_mgmt_cluster_volume_type }}"
+
+#capi_etcd_backup_retention_days
+
 capi_mgmt_cluster_keypair:
   name: 'capi_mgmt_cluster_keypair'
   path: "/var/tmp/capi_mgmt_cluster_keypair"
@@ -110,9 +117,6 @@ capi_mgmt_cluster_instances:
 
 capi_mgmt_dns_forwarders:
   - 10.239.0.55
-
-#capi_mgmt_cluster_inventory_path: "/var/tmp/capi-mgmt-inventory.ini"
-#capi_mgmt_cluster_script_path: "/var/tmp/capi-cluster-install.sh"
 
 capi_mgmt_bootstrap_vm_user: "ubuntu"
 capi_mgmt_bootstrap_vm_path: "/home/ubuntu"
